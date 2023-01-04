@@ -33,6 +33,7 @@
     "lodash": "^4.17.21",
     "needle": "^3.2.0",
     "nestjs-telegraf": "^2.6.3",
+    "node-html-to-image": "^3.2.4",
     "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.2",
     "rxjs": "^7.2.0"

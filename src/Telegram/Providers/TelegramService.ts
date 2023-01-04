@@ -1,7 +1,8 @@
 import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
 import { findIndex } from 'lodash';
-import { InjectBot } from 'nestjs-telegraf';
+import { Ctx, InjectBot } from 'nestjs-telegraf';
+import nodeHtmlToImage from 'node-html-to-image';
 import { ConfigService } from 'src/Config';
 import { Context, Telegraf } from 'telegraf';
 
@@ -25,8 +26,6 @@ export class TelegramService {
   ): Promise<Buffer> {
     const fileMete = await this._bot.telegram.getFile(file_id);
 
-    console.log({ fileMete });
-
     const url = decodeURI(
       `https://api.telegram.org/file/bot${this._confixService.config.telegramToken}/${fileMete.file_path}`,
     );
@@ -48,25 +47,24 @@ export class TelegramService {
     }
   }
 
-  // private async _downloadFileTg(id: string, file_name: string): Promise<any> {
-  //   // const writer = createWriteStream(process.cwd() + '/' + file_name);
-  //   const whi = await this._bot.telegram.getFile(id);
-  //   console.log({ whi });
-  // }
-
   public async getFile(ctx: Context) {
-    const ctxFlex: any = ctx;
-    // console.log(ctx);
     let file;
     if ('document' in ctx.message) {
       file = ctx.message.document;
-      console.log({ file });
       const fileBuffer = await this._downloadFileTg(file.file_id);
-      // console.log(fileBuffer.toString());
-      const a = await this._getMarxR(fileBuffer.toString());
-      // for (const b of a) {
-      //   // console.log(b);
-      // }
+
+      const data = await this._getMarxR(fileBuffer.toString());
+
+      const imgBlob: any = await nodeHtmlToImage({
+        html: data,
+      });
+
+      await ctx.sendDocument({
+        source: imgBlob,
+        filename: 'MatrixR.png',
+      });
+      // await this._bot.
+      // await ctx.replyWithDocument(imgBlob);
     }
 
     return;
@@ -92,13 +90,10 @@ export class TelegramService {
     }
 
     const componentNames = [...new Set(nodeComponentsName)].sort();
-    console.log(componentNames);
+
     componentNames[0] = 'Name';
 
     const R = new Array(componentNames.length);
-
-    console.log('-=-=-=-=-=-=-=-=-');
-    console.log(R.length);
 
     for (let I = 0; I < R.length; I++) {
       if (I == 0) {
@@ -134,9 +129,6 @@ export class TelegramService {
             return name == blocks[I];
           });
 
-          // console.log('iteration = ', I);
-          // console.log('i.1 ', blockIndex1, 'i.2 ', blockIndex2);
-
           R[blockIndex1][blockIndex2] = +R[blockIndex1][blockIndex2] + 1;
           R[blockIndex2][blockIndex1] = +R[blockIndex2][blockIndex1] + 1;
 
@@ -145,13 +137,77 @@ export class TelegramService {
       }
     }
 
-    this._seeMtrx(R);
-    // console.log(nodes);
+    return this._matrixToHtml(R, 2, R[0].length, R.length);
   }
 
   private _seeMtrx(matrix: any[]) {
     for (let I = 0; I < matrix.length; I++) {
       console.log(matrix[I].toString());
     }
+  }
+
+  private _matrixToHtml(
+    matrix: any[],
+    itemSize: number,
+    widthLen: number,
+    HiLen: number,
+  ) {
+    let divMat = '';
+    const w = 30 * widthLen * itemSize;
+    const h = HiLen * 30;
+
+    for (const line of matrix) {
+      for (const item of line) {
+        divMat += `<div class="matrix-item${
+          typeof item !== 'number' ? ' head' : ''
+        }" style="width: ${30 * itemSize}px; height: ${30}px">${item}</div>`;
+      }
+    }
+
+    const html = `
+      <html lang="en">
+      <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body>
+          <style>
+              *{
+                  margin: 0;
+                  padding: 0;
+                  box-sizing: border-box;
+              }
+
+              body {
+                width: ${w}px;
+                height: ${h}px;
+              }
+
+              .matrix-container {
+                  display: grid;
+              }
+
+              .matrix-item {
+                  width: 30px;
+                  height: 30px;
+                  border: 1px solid black;
+                  display: flex;
+                  justify-content: center;
+                  align-items: center;
+              }
+
+              .head {
+                  background-color: gray;
+                  color: white;
+              }
+          </style>
+          <div class="matrix-container" id="matrix-container" style="grid-template-columns: repeat(${widthLen}, 1fr); width: 150px;">
+          ${divMat}
+          </div>
+      </body>
+      </html>
+      `;
+
+    return html;
   }
 }
