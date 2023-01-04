@@ -1,3 +1,4 @@
+import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
 import { TelegrafModule } from 'nestjs-telegraf';
 import { ConfigModule, ConfigService } from 'src/Config';
@@ -6,6 +7,7 @@ import { TelegramController, TelegramService } from './Providers';
 @Module({
   imports: [
     ConfigModule,
+    HttpModule,
     TelegrafModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (_configService: ConfigService) => ({
