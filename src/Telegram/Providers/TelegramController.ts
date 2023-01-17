@@ -14,7 +14,11 @@ export class TelegramController {
   }
 
   @On('document')
-  public async text(@Ctx() ctx: Context) {
+  public async document(@Ctx() ctx: Context) {
     await this._telegramService.getFile(ctx);
+  }
+  @On('text')
+  public async text(@Ctx() ctx: Context) {
+    await this._telegramService.start(ctx);
   }
 }

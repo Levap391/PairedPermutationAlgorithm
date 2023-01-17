@@ -16,14 +16,14 @@ export class TelegramService {
   ) {}
 
   public async start(ctx: Context) {
-    await ctx.reply('Hi ' + ctx.from.username);
+    await ctx.reply(
+      'Отправьте файл в формате Calay для получения матриц Q и R, c уважением ' +
+        ctx.from.username,
+    );
     return;
   }
 
-  private async _downloadFileTg(
-    file_id: string,
-    // file_name: string,
-  ): Promise<Buffer> {
+  private async _downloadFileTg(file_id: string): Promise<Buffer> {
     const fileMete = await this._bot.telegram.getFile(file_id);
 
     const url = decodeURI(
@@ -53,25 +53,33 @@ export class TelegramService {
       file = ctx.message.document;
       const fileBuffer = await this._downloadFileTg(file.file_id);
 
-      const data = await this._getMarxR(fileBuffer.toString());
+      const RData = await this._getMarxR(fileBuffer.toString());
 
-      const imgBlob: any = await nodeHtmlToImage({
-        html: data,
+      const RImgBlob: any = await nodeHtmlToImage({
+        html: RData,
       });
 
       await ctx.sendDocument({
-        source: imgBlob,
+        source: RImgBlob,
         filename: 'MatrixR.png',
       });
-      // await this._bot.
-      // await ctx.replyWithDocument(imgBlob);
+
+      const QData = await this._getMarxQ(fileBuffer.toString());
+
+      const QImgBlob: any = await nodeHtmlToImage({
+        html: QData,
+      });
+
+      await ctx.sendDocument({
+        source: QImgBlob,
+        filename: 'MatrixQ.png',
+      });
     }
 
     return;
   }
 
   private async _getMarxR(bufStr: string) {
-    // const clearbuf = bufStr.replace('\r\n', '');
     const lines = bufStr
       .replace(new RegExp(',\\r\\n          ', 'g'), ' ')
       .split(';\r\n');
@@ -128,7 +136,9 @@ export class TelegramService {
           const blockIndex2 = findIndex(componentNames, (name) => {
             return name == blocks[I];
           });
-
+          if (blockIndex1 === blockIndex2) {
+            continue;
+          }
           R[blockIndex1][blockIndex2] = +R[blockIndex1][blockIndex2] + 1;
           R[blockIndex2][blockIndex1] = +R[blockIndex2][blockIndex1] + 1;
 
@@ -138,6 +148,78 @@ export class TelegramService {
     }
 
     return this._matrixToHtml(R, 2, R[0].length, R.length);
+  }
+  private async _getMarxQ(bufStr: string) {
+    const lines = bufStr
+      .replace(new RegExp(',\\r\\n          ', 'g'), ' ')
+      .split(';\r\n');
+    const nodes = [];
+    const nodeComponentsName = [];
+    const nodeNames = [];
+
+    for (const line of lines) {
+      const node = line.substring(9);
+      const [nodeName] = line.split(' ');
+      nodeNames.push(nodeName);
+
+      const components = node.split(' ');
+      for (const component of components) {
+        nodeComponentsName.push(component.replace(/\(.+\)/, ''));
+      }
+
+      nodes.push(node);
+    }
+
+    const componentNames = [...new Set(nodeComponentsName)].sort();
+
+    componentNames[0] = 'Name';
+
+    const Q = [componentNames];
+
+    // Q[0] = componentNames;
+
+    // for (let I = 0; I < Q.length; I++) {
+    //   if (I == 0) {
+    //     Q[I] = [...nodeNames];
+    //   } else {
+    //     Q[I] = new Array(componentNames.length);
+    //     Q[I][0] = componentNames[I];
+    //   }
+    // }
+
+    for (const line of lines) {
+      const node = line.substring(9);
+      const blocks: any[] = node.split(' ').map((q) => {
+        return q.replace(/\(.+\)/, '');
+      });
+
+      const [nodeName] = line.split(' ');
+
+      const nodeArr = new Array(componentNames.length);
+
+      nodeArr[0] = nodeName;
+
+      for (const block of blocks) {
+        const indexBlock = findIndex(componentNames, (name) => {
+          return name == block;
+        });
+        if (block == '') {
+          continue;
+        }
+
+        nodeArr[indexBlock] = 1;
+        for (let index = 0; index < nodeArr.length; index++) {
+          if (nodeArr[index]) {
+            continue;
+          } else {
+            nodeArr[index] = '-';
+          }
+        }
+      }
+      Q.push(nodeArr);
+    }
+
+    return this._matrixToHtml(Q, 2, Q[0].length, Q.length);
   }
 
   private _seeMtrx(matrix: any[]) {
